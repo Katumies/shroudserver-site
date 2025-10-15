@@ -15,7 +15,7 @@ const config: Config = {
   },
 
   url: 'https://katumies.github.io',
-  baseUrl: '/ShroudServer/',
+  baseUrl: '/shroudserver-site/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
