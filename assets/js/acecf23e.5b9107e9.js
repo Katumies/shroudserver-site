@@ -1,1 +1,0 @@
-"use strict";(globalThis.webpackChunkshroudserver=globalThis.webpackChunkshroudserver||[]).push([[1903],{1912:s=>{s.exports=JSON.parse('{"blogBasePath":"/shroudserver-site/blog","blogTitle":"Blog","authorsListPath":"/shroudserver-site/blog/authors"}')}}]);
