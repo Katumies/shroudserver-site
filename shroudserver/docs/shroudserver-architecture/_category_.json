@@ -1,0 +1,8 @@
+{
+  "label": "ShroudServer Architecture",
+  "position": 1,
+  "link": {
+    "type": "generated-index",
+    "description": "Plans and implementations for ShroudServer's architecture.",
+  }
+}

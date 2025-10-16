@@ -2,46 +2,34 @@
 sidebar_position: 1
 ---
 
-# Tutorial Intro
+# Shroud Server Documentation
 
-Let's discover **Docusaurus in less than 5 minutes**.
+Here you'll find all the information about the technical aspects of Shroud Server.
 
-## Getting Started
+### This is a stub and I will fill it out when I have time.
 
-Get started by **creating a new site**.
+#### TODO:
+- Networking basics
+  - [ ] Introduction to Photon Network and Photon Unity Networking (PUN)
+    - [ ] What Photon provides
+    - [ ] What PUN provides
+    - [ ] SotA server architecture, presumed
+  - [ ] Photon protocol
+    - [ ] How photon communicates with the client
+    - [ ] The actual protocol16
+    - [ ] Photon UDP, from high level
+  - [ ] ENet
+    - [ ] What is ENet and ENet-CSharp
+    - [ ] How ENet works
+- Networking documentation
+  - [ ] ENet-Csharp modifications
+  - [ ] Photon protocol implementation
+- ShroudServer architecture
+  - [ ] Overall architecture, AspNetCore, Wolverine, MartenDB
+  - [ ] CQRS and Event Sourcing
+  - [ ] Domain Driven Design
+- BepInEx plugin's for the client
+  - [ ] How plugins work
+  - [ ] Why plugins are needed
+  
 
-Or **try Docusaurus immediately** with **[docusaurus.new](https://docusaurus.new)**.
-
-### What you'll need
-
-- [Node.js](https://nodejs.org/en/download/) version 20.0 or above:
-  - When installing Node.js, you are recommended to check all checkboxes related to dependencies.
-
-## Generate a new site
-
-Generate a new Docusaurus site using the **classic template**.
-
-The classic template will automatically be added to your project after you run the command:
-
-```bash
-npm init docusaurus@latest my-website classic
-```
-
-You can type this command into Command Prompt, Powershell, Terminal, or any other integrated terminal of your code editor.
-
-The command also installs all necessary dependencies you need to run Docusaurus.
-
-## Start your site
-
-Run the development server:
-
-```bash
-cd my-website
-npm run start
-```
-
-The `cd` command changes the directory you're working with. In order to work with your newly created Docusaurus site, you'll need to navigate the terminal there.
-
-The `npm run start` command builds your website locally and serves it through a development server, ready for you to view at http://localhost:3000/.
-
-Open `docs/intro.md` (this page) and edit some lines: the site **reloads automatically** and displays your changes.
