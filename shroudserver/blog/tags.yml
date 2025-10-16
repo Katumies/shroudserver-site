@@ -1,19 +1,24 @@
-facebook:
-  label: Facebook
-  permalink: /facebook
-  description: Facebook tag description
+﻿me:
+  label: 'me'
+  permalink: '/me'
+  description: 'Blog posts about me'
 
-hello:
-  label: Hello
-  permalink: /hello
-  description: Hello tag description
+programming:
+  label: 'programming'
+  permalink: '/programming'
+  description: 'Blog posts about programming'
 
-docusaurus:
-  label: Docusaurus
-  permalink: /docusaurus
-  description: Docusaurus tag description
+csharp:
+  label: 'csharp'
+  permalink: '/csharp'
+  description: 'Blog posts about C#'
 
-hola:
-  label: Hola
-  permalink: /hola
-  description: Hola tag description
+enet:
+  label: 'enet'
+  permalink: '/enet'
+  description: 'Blog posts about ENet networking library'
+  
+networking:
+  label: 'networking'
+  permalink: '/networking'
+  description: 'Blog posts about networking'

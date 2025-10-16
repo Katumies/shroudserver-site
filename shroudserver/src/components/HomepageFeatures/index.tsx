@@ -2,51 +2,49 @@ import type {ReactNode} from 'react';
 import clsx from 'clsx';
 import Heading from '@theme/Heading';
 import styles from './styles.module.css';
+import Link from "@docusaurus/Link";
 
 type FeatureItem = {
   title: string;
-  Svg: React.ComponentType<React.ComponentProps<'svg'>>;
+  image: string;
   description: ReactNode;
 };
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Easy to Use',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    title: 'Development blogs',
+    image: require('@site/static/img/feature_blog.jpg').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        Find out what it takes to implement server for an MMORPG.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    title: 'Documentation',
+    image: require('@site/static/img/feature_documentation.png').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        Documentation for network protocol and server implementation.
       </>
     ),
-  },
+  }, 
   {
-    title: 'Powered by React',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    title: 'In progress',
+    image: require('@site/static/img/feature_under_construction.png').default,
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        This site and the project is still in early stages. Patience is needed.
       </>
     ),
   },
 ];
 
-function Feature({title, Svg, description}: FeatureItem) {
+function Feature({title, image, description}: FeatureItem) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
+          <img src={image} alt={title} className={styles.featureImage} />
       </div>
       <div className="text--center padding-horiz--md">
         <Heading as="h3">{title}</Heading>
