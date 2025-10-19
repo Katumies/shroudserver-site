@@ -1,0 +1,372 @@
+﻿---
+title: ENet modifications and reverse engineering
+description: Technical deep dive into ENet modifications needed for ShroudServer.
+date: 2025-10-19
+authors: katumies
+    
+tags:
+    - me
+    - csharp
+    - networking
+    - enet
+
+---
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Enet modifications
+
+Yesterday and today, I have been working on modifying [ENet-CSharp](https://github.com/Molth/enet-csharp) library to work with SotA.
+I'll go through the changes needed and why they were needed.
+
+Warning, this is going to be a very technical post.
+
+<!-- truncate --> 
+
+### Background
+
+SotA uses Photon networking for all the networking needs. The server they are running is Photon Server v4, and the client
+uses Photon Unity Networking V1. How do I know all this? Well, I took a look at the game files, and there it is, Photon3Unity3D.dll.
+This is the client library for Photon networking. I have spent a few years, with varying interest, to dig out how the game works
+and more importantly, how the networking works.
+
+### Reverse engineering
+Hours and hours of using Wireshark, DotPeek, DnSpy and other tools, I have managed to get a good understanding
+of the networking protocol used by the game. There is not a lot of public information about the protocol used by Photon,
+so I had to do a lot of things by myself. Luckily, this year, there been some other projects that have been working on
+Photon emulation, and I have been able to learn from them as well. However, none of those tackled the actual ENet modification,
+but rather focused on emulating the server. Nothing wrong about that, but I wanted to go deeper.
+
+#### Actual reverse engineering
+What do I actually do when I say reverse engineering?
+
+For example, the last few days, I have been working on understanding how the reliable messages are sent and received and also,
+how the acknowledgements are handled. This required hours of looking and tracing the code to actually understand that it really
+matters that acknowledgements are sent in a specific way. This is one of the modifications ENet needed. I also spent used Wireshark
+to capture and record the actual packets sent by the client, when it's connecting at the game start and also, what the server answers.
+I saved those packets and used Wireshark to analyze them.
+
+Normally, all networking messages are obfuscated, but I have disabled that with the BepInEx plugin I have created for the client.
+They obfuscate it by adding a random variable number of random bytes to the start and end or the actual message.
+Then there are a few places where they drop byte '55' (0x37) to work as a marker. Nothing fancy, but it works, I guess.
+It surely stops casual packet sniffing. However, they could have enabled encryption also, or instead of sending JSON data,
+they could have used a binary format.
+
+#### BepInEx plugin
+To help with the reverse engineering, I created a BepInEx plugin for the client. It's nothing fancy, but it changes all
+the addresses the client uses to connect servers and point those addresses to my localhost. I also have added logging here
+and there to get more information about what the client is doing. I found a way to swap the encryption keys, so I don't have
+to disable encryption used for login passwords etc. I patch the obfuscation method, so it takes a byte array and 
+just returns it as is, instead of adding random bytes.
+
+BepInEx is a great modding framework for Unity games, and we are going to use it a lot in this project.
+So much could be done with it already.
+
+ - adding custom UI's
+    - totally new windows that aggregate information from multiple sources
+ - modding existing UI's
+    - sorting changes
+    - adding new buttons that simplify things
+ - adding new Lua features
+    - literally anything can be connected to lua scripts within the game data
+ - fixing existing issues with the client.
+
+I did say, that this is going to be a technical post, so for the fellow nerds, here is the code snippet that patches the obfuscation method:
+
+```csharp
+    // Find the type information for the PortMessage class
+    Type type = Type.GetType("Portalarium.Photon.PortMessage, Assembly-CSharp");
+    
+    // Use type information to get the MethodInfo for the CreateByteArrayData method
+    MethodInfo createByteArrayDataMethodInfo = type.GetMethod("CreateByteArrayData", BindingFlags.NonPublic | BindingFlags.Static);
+    
+    // use Harmony to patch the method
+	var instance = new Harmony("tester");
+	instance.Patch(
+		createByteArrayDataMethodInfo,
+		new HarmonyMethod(typeof(PatchObfuscation).GetMethod("Prefix")),
+		null,
+		null
+		);
+
+    // this is BepInEx Harmony patch class
+   public class PatchObfuscation
+    {
+        // Prefix, executed before the original method, with the ability to modify parameters, reroute execution or set return value.
+        public static bool Prefix(ref DataBuffer __result, MethodBase __originalMethod, char[] SerializedData, int length)
+        {
+            // Here we create new return value for the method and instead of obfuscating the data, we just convert it to DataBuffer as is.
+            byte[] returnValue = new byte[length];
+            Encoding.UTF8.GetBytes(SerializedData, 0, length, returnValue, 0);
+            DataBuffer dataBuffer = new DataBuffer(returnValue);
+            __result = dataBuffer;
+
+            // return false means, that the original method is not executed.
+            return false;
+        }
+    }
+```
+BepInEx is a really powerful tool, and I recommend it for anyone wanting to mod Unity games.
+
+#### Wireshark
+
+With Wireshark, I can see what kind of packets are sent between the client and the server. I use [photon-dissector](https://github.com/bennesp/photon-dissector)
+with tiny modifications to make it work with this photon version. It is a sort of plugin for Wireshark that allows it to understand and decode
+the Photon protocol.
+
+![Wireshark screenshot](/img/wireshark/wireshark.jpg)
+
+## ENet modifications
+
+So, as previously stated, Photon is built on top of ENet. ENet is the actual networking part of the code. It reads and writes packets
+to and from the sockets, using UDP protocol. I'm not going to cover UDP and socket programming, but I will cover the ENet part.
+One thing to remember is that Photon is a HUGE software that can do so much more than just UDP networking, so we are not replacing all the
+features of Photon, only the important ones, UDP layer.
+
+#### Main differences
+
+At this time, I can't even list all the differences because I may discover more in the future. However, SotA client accepts my
+server and starts to communicate with it, so I can assume that the biggest differences have been fixed.
+
+
+##### ProtocolCommands are almost equal
+
+Realizing that the protocol at very low level is almost the same for both Photon and Enet, gave me the confidence that this is doable.
+These are the protocol commands that are used by both libraries.
+<Tabs>
+    <TabItem value="ENet" label="ENet" default>
+        ```csharp
+        public enum ENetProtocolCommand
+        {
+            ENET_PROTOCOL_COMMAND_NONE = 0,
+            ENET_PROTOCOL_COMMAND_ACKNOWLEDGE = 1,
+            ENET_PROTOCOL_COMMAND_CONNECT = 2,
+            ENET_PROTOCOL_COMMAND_VERIFY_CONNECT = 3,
+            ENET_PROTOCOL_COMMAND_DISCONNECT = 4,
+            ENET_PROTOCOL_COMMAND_PING = 5,
+            ENET_PROTOCOL_COMMAND_SEND_RELIABLE = 6,
+            ENET_PROTOCOL_COMMAND_SEND_UNRELIABLE = 7,
+            ENET_PROTOCOL_COMMAND_SEND_FRAGMENT = 8,
+            ENET_PROTOCOL_COMMAND_SEND_UNSEQUENCED = 9,
+            ENET_PROTOCOL_COMMAND_BANDWIDTH_LIMIT = 10,
+            ENET_PROTOCOL_COMMAND_THROTTLE_CONFIGURE = 11,
+            ENET_PROTOCOL_COMMAND_SEND_UNRELIABLE_FRAGMENT = 12,
+            ENET_PROTOCOL_COMMAND_COUNT = 13,
+        
+            ENET_PROTOCOL_COMMAND_MASK = 0x0F
+        }
+        ```
+    </TabItem>
+    <TabItem value="Photon" label="Photon">
+        ```csharp
+        public enum PhotonProtocolCommand
+        {
+            PHOTON_PROTOCOL_COMMAND_NONE = 0,
+            PHOTON_PROTOCOL_COMMAND_ACKNOWLEDGE = 1,
+            PHOTON_PROTOCOL_COMMAND_CONNECT = 2,
+            PHOTON_PROTOCOL_COMMAND_VERIFY_CONNECT = 3,
+            PHOTON_PROTOCOL_COMMAND_DISCONNECT = 4,
+            PHOTON_PROTOCOL_COMMAND_PING = 5,
+            PHOTON_PROTOCOL_COMMAND_SEND_RELIABLE = 6,
+            PHOTON_PROTOCOL_COMMAND_SEND_UNRELIABLE = 7,
+            PHOTON_PROTOCOL_COMMAND_SEND_FRAGMENT = 8,
+            PHOTON_PROTOCOL_COMMAND_SEND_UNSEQUENCED = 9,
+            //PHOTON_PROTOCOL_COMMAND_BANDWIDTH_LIMIT = 10,
+            //PHOTON_PROTOCOL_COMMAND_THROTTLE_CONFIGURE = 11,
+            //PHOTON_PROTOCOL_COMMAND_SEND_UNRELIABLE_FRAGMENT = 12,
+            PHOTON_PROTOCOL_COMMAND_SEND_SERVERTIMESTAMP = 12,
+            PHOTON_PROTOCOL_COMMAND_COUNT = 13,
+    
+            PHOTON_PROTOCOL_COMMAND_MASK = 0x0F
+        }
+        ```
+    </TabItem>
+</Tabs>
+
+##### Protocol Headers differ
+
+A Big difference between the two protocols is the actual protocol headers used. Photon has more information in the header.
+ENet uses bit-fields to encode data to, for example, peerID. So, the actual maximum peerID is 0xFFF because the last bit
+is used for bit flags.
+
+Photon has explicit bytes reserved for things needed. It looks like ENet is more efficient, but Photon delivers much more
+complicated data, and it packs the data better, so in the real world, it's probably more efficient after all.
+
+PeerID functionality and commandCount things caused refactorings here and there. I tried to find a way to make them work
+all the while keeping ENets features in use. Also, ENet uses the sessionID variable to keep track of the connection, but Photon
+uses the challenge variable. Photon Marks the packets as reliable by using the command flags and CommandType. 
+
+
+<Tabs>
+    <TabItem value="ENet" label="ENet" default>
+        ```csharp
+        // 8 bytes
+        public struct ENetProtocolHeader
+        {
+            public ushort peerID;
+            public ushort sentTime;
+        }
+
+        // 6 bytes
+        public struct ENetProtocolCommandHeader
+        {
+            public byte command;
+            public byte channelID;
+            public uint reliableSequenceNumber;
+        }
+        ```
+    </TabItem>
+    <TabItem value="Photon" label="Photon">
+        ```csharp
+        // 12 bytes
+        public struct PhotonProtocolHeader
+        {
+            public ushort peerID;
+            public byte crcEnabled;
+            public byte commandCount;
+            public uint sentTime;
+            public uint challenge;
+        }
+        // 12 bytes
+        public struct PhotonProtocolCommandHeader
+        {
+            public byte commandType;
+            public byte channelID;
+            public byte commandFlags;
+            public byte reservedBytes;
+            public uint commandLen;
+            public uint reliableSequenceNumber;
+        }
+        ```
+    </TabItem>
+</Tabs>
+
+
+
+##### Connection handshake commands
+
+ENet has a very different connection handshake. ENet sends tons of data and uses fields that are not present in Photon.
+ENet client decides its own ID, where as Photon uses incremental ID, assigned by the server.
+SotA clients PUN sends very few fields, most of the "connect" data is 0.
+Also, when the SotA client receives the "Verify connect" command, it basically ignores everything from the payload.
+It only reads two first bytes of it as a peerID. 
+
+One big thing I had to change was that acknowledgement for the "connect" command has to be in the next message sent and
+it has to be before "verify connect" in the list of commands. Client reads incoming commands in the order they are sent and if
+"verify connect" is received before the "connect" is acknowledged, it sends the "connect" command again. This is just a one example
+of things that just have to be dug out with reverse engineering.
+
+<Tabs>
+    <TabItem value="ENet" label="ENet" default>
+        ```csharp
+        public struct ENetProtocolAcknowledge
+        {
+            public ENetProtocolCommandHeader header;
+            public uint receivedReliableSequenceNumber;
+            public ushort receivedSentTime;
+        }
+
+        public struct ENetProtocolConnect
+        {
+            public ENetProtocolCommandHeader header;
+            public ushort outgoingPeerID;
+            public byte incomingSessionID;
+            public byte outgoingSessionID;
+            public uint mtu;
+            public uint windowSize;
+            public uint channelCount;
+            public uint incomingBandwidth;
+            public uint outgoingBandwidth;
+            public uint packetThrottleInterval;
+            public uint packetThrottleAcceleration;
+            public uint packetThrottleDeceleration;
+            public uint connectID;
+            public uint data;
+        }
+
+        public struct ENetProtocolVerifyConnect
+        {
+            public ENetProtocolCommandHeader header;
+            public ushort outgoingPeerID;
+            public byte incomingSessionID;
+            public byte outgoingSessionID;
+            public uint mtu;
+            public uint windowSize;
+            public uint channelCount;
+            public uint incomingBandwidth;
+            public uint outgoingBandwidth;
+            public uint packetThrottleInterval;
+            public uint packetThrottleAcceleration;
+            public uint packetThrottleDeceleration;
+            public uint connectID;
+        }
+        ```
+    </TabItem>
+    <TabItem value="Photon" label="Photon">
+        ```csharp
+        public struct PhotonProtocolAcknowledge
+        {
+            public PhotonProtocolCommandHeader header;
+            public uint receivedReliableSequenceNumber;
+            public uint receivedSentTime;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public unsafe struct PhotonProtocolConnect
+        {
+            public PhotonProtocolCommandHeader header;
+            public fixed byte payload[32];
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public unsafe struct PhotonProtocolVerifyConnect
+        {
+            public PhotonProtocolCommandHeader header;
+            public fixed byte payload[32];
+        }
+        ```
+    </TabItem>
+</Tabs>
+
+
+## The final result
+
+What did I achieve?
+
+ENet modifications allow it to work with SotA. I can start my server and listen to port 5057, and the client initiates the connection 
+handshake. ENet correctly responds, and the client accepts the connection. After that, the client starts to send the first actual messages to the server.
+First messages are sent to LoggingServer. LoggingServer main functionality is to receive logs and to provide News of the day, internetradio urls and some minor things.
+But it's the first server game connects to, and it works now.
+
+The actual Peer in the ShroudServer application now receives the messages from the client. One of the first messages looks like this:
+```hexdump
+F3 02 00 00 02 00 6C 00 00 00 00 66 28 19 81 02 63 01 00 6A 7B 22 30 22 3A 22 4C 6F 67
+22 2C 22 31 22 3A 22 53 6F 74 41 2E 57 69 6E 2E 36 34 2E 31 37 39 38 2E 44 61 74 65 2E
+31 30 2E 30 36 2E 32 35 2C 20 4C 6F 63 61 6C 54 69 6D 65 3D 31 38 2F 31 30 2F 32 30 32
+35 20 32 32 3A 30 33 3A 35 33 2C 20 50 61 74 63 68 3D 42 61 63 6B 54 6F 53 71 75 69 72
+72 65 6C 2E 32 30 32 35 22 7D
+```
+And after bit of parsing
+
+```json
+{
+  "0" : "Log",
+  "1" : "SotA.Win.64.1798.Date.10.06.25, LocalTime=18/10/2025 22:03:53, Patch=BackToSquirrel.2025"
+}
+```
+This is an actual message from the client. After all this hassle, it does not seem like a big deal, but getting here was a lot of work.
+
+## Next steps?
+
+Before I threw the Photon server away, I had all the logging server functionality working and login sequence.
+Because Photon SDK uses .Net 4.8, I had to create a slimy, disgusting bridge between Photon and my ShroudServer.
+ShroudServer is using latest of everything and those are not compatible. Bridge was done with REST. I now have to create a proper
+communication layer between my Enet server and the actual ShroudServer. It's not a big deal, but it's the next step.
+
+After I get the bridge working, the client should be able to send logging data and receive news of the day etc. from the ShroudServer.
+Also, login should work. When I say login, I mean the actual login sequence, nothing more. There's tons of things to do, before client actually loads
+to main world.
+
+If you read all this, I hope you enjoyed it. These are something I use to reiterate what I did, so I can remember what I did.
+
+-Katu

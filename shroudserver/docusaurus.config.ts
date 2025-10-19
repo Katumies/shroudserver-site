@@ -25,8 +25,8 @@ const config: Config = {
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],
-  },
-
+  }, 
+  plugins: [require.resolve('docusaurus-plugin-image-zoom')],
   presets: [
     [
       'classic',
@@ -74,13 +74,24 @@ const config: Config = {
         {to: '/blog', label: 'Blog', position: 'left'},
       ],
     },
+    zoom: {
+      selector: '.markdown :not(em) > img',
+      background: {
+          light: 'rgb(255, 255, 255)',
+          dark: 'rgb(50, 50, 50)'
+      },
+      config: {
+          // options you can specify via https://github.com/francoischalifour/medium-zoom#usage
+      }
+    },  
     footer: {
       style: 'dark',
       copyright: `Copyright © ${new Date().getFullYear()} Katumies, Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
+      darkTheme: prismThemes.dracula, 
+      additionalLanguages: ['csharp'],
     },
   } satisfies Preset.ThemeConfig,
 };
