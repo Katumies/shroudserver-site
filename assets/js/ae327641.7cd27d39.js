@@ -1,1 +1,0 @@
-"use strict";(globalThis.webpackChunkshroudserver=globalThis.webpackChunkshroudserver||[]).push([[6792],{503:e=>{e.exports=JSON.parse('{"authors":[{"name":"Katumies","title":"Dev","imageURL":"https://avatars.githubusercontent.com/u/2749368?v=4&size=64","key":"katumies","page":null,"count":1}]}')}}]);
